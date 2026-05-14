@@ -1,88 +1,568 @@
 """
 Configuration management for the Multi-Agent Appointment Booking System.
-Uses pydantic-settings for environment variable management.
+
+This module provides centralized configuration management using pydantic-settings
+for type-safe environment variable handling with validation and documentation.
+
+Features:
+    - Type-safe configuration with Pydantic validation
+    - Environment-specific settings (development, staging, production)
+    - Cached settings instance for performance
+    - Comprehensive validation and error handling
+    - Helper properties for common configuration checks
+
+Example:
+    >>> from src.config import get_settings
+    >>> settings = get_settings()
+    >>> if settings.is_production:
+    ...     print(f"Running in production mode")
 """
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from enum import Enum
 from functools import lru_cache
-from typing import Optional
+from typing import Literal, Optional
+
+from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+class Environment(str, Enum):
+    """Valid application environment types."""
+    
+    DEVELOPMENT = "development"
+    STAGING = "staging"
+    PRODUCTION = "production"
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """
+    Application settings loaded from environment variables.
     
+    All settings are loaded from environment variables or .env file.
+    Sensitive values (API keys, secrets) are stored as SecretStr for security.
+    
+    Attributes:
+        app_name: Application name identifier
+        app_env: Current environment (development, staging, production)
+        debug: Enable debug mode (auto-disabled in production)
+        secret_key: Application secret key for cryptographic operations
+        
+    Raises:
+        ValidationError: If required settings are missing or invalid
+    """
+    
+    # ============================================================================
     # Application Configuration
-    app_name: str = "Multi-Agents-Appointment-Booking"
-    app_env: str = "development"  # Options: development, staging, production
+    # ============================================================================
+    app_name: str = Field(
+        default="Multi-Agents-Appointment-Booking",
+        description="Application name identifier"
+    )
+    app_env: Environment = Field(
+        default=Environment.DEVELOPMENT,
+        description="Current application environment"
+    )
+    debug: bool = Field(
+        default=True,
+        description="Enable debug mode (auto-disabled in production)"
+    )
+    secret_key: SecretStr = Field(
+        default="",
+        description="Application secret key for cryptographic operations"
+    )
     
-    @property
-    def is_development(self) -> bool:
-        """Check if running in development environment."""
-        return self.app_env.lower() == "development"
+    # ============================================================================
+    # Database Configuration
+    # ============================================================================
+    database_url: SecretStr = Field(
+        default="",
+        description="PostgreSQL database connection URL"
+    )
+    database_pool_size: int = Field(
+        default=20,
+        ge=1,
+        le=100,
+        description="Database connection pool size"
+    )
+    database_pool_max_overflow: int = Field(
+        default=10,
+        ge=0,
+        le=50,
+        description="Maximum overflow connections beyond pool_size"
+    )
+    database_pool_timeout: int = Field(
+        default=30,
+        ge=1,
+        le=300,
+        description="Timeout in seconds for getting connection from pool"
+    )
     
-    @property
-    def is_production(self) -> bool:
-        """Check if running in production environment."""
-        return self.app_env.lower() == "production"
+    # ============================================================================
+    # Redis Configuration
+    # ============================================================================
+    redis_url: SecretStr = Field(
+        default="",
+        description="Redis connection URL for caching and task queue"
+    )
+    redis_max_connections: int = Field(
+        default=50,
+        ge=1,
+        le=200,
+        description="Maximum Redis connection pool size"
+    )
     
-    @property
-    def is_staging(self) -> bool:
-        """Check if running in staging environment."""
-        return self.app_env.lower() == "staging"
-    debug: bool = True
-    secret_key: str = ""
+    # ============================================================================
+    # OpenAI Configuration
+    # ============================================================================
+    openai_api_key: SecretStr = Field(
+        default="",
+        description="OpenAI API key for AI agent functionality"
+    )
+    openai_model: str = Field(
+        default="gpt-4-turbo-preview",
+        description="OpenAI model to use for completions"
+    )
+    openai_temperature: float = Field(
+        default=0.7,
+        ge=0.0,
+        le=2.0,
+        description="Temperature for OpenAI completions (0.0-2.0)"
+    )
+    openai_max_tokens: int = Field(
+        default=2000,
+        ge=1,
+        le=8000,
+        description="Maximum tokens for OpenAI completions"
+    )
     
-    # Database
-    database_url: str = ""
-    database_pool_size: int = 20
+    # ============================================================================
+    # Google Calendar Integration
+    # ============================================================================
+    google_client_id: str = Field(
+        default="",
+        description="Google OAuth2 client ID"
+    )
+    google_client_secret: SecretStr = Field(
+        default="",
+        description="Google OAuth2 client secret"
+    )
+    google_redirect_uri: str = Field(
+        default="",
+        description="Google OAuth2 redirect URI"
+    )
     
-    # Redis
-    redis_url: str = ""
+    # ============================================================================
+    # Microsoft Graph (Outlook) Integration
+    # ============================================================================
+    microsoft_client_id: str = Field(
+        default="",
+        description="Microsoft OAuth2 client ID"
+    )
+    microsoft_client_secret: SecretStr = Field(
+        default="",
+        description="Microsoft OAuth2 client secret"
+    )
+    microsoft_redirect_uri: str = Field(
+        default="",
+        description="Microsoft OAuth2 redirect URI"
+    )
     
-    # OpenAI
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4-turbo-preview"
+    # ============================================================================
+    # SendGrid (Email) Configuration
+    # ============================================================================
+    sendgrid_api_key: SecretStr = Field(
+        default="",
+        description="SendGrid API key for email notifications"
+    )
+    sendgrid_from_email: str = Field(
+        default="",
+        description="Default sender email address"
+    )
     
-    # Google Calendar
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_redirect_uri: str = ""
+    # ============================================================================
+    # Twilio (SMS) Configuration
+    # ============================================================================
+    twilio_account_sid: str = Field(
+        default="",
+        description="Twilio account SID"
+    )
+    twilio_auth_token: SecretStr = Field(
+        default="",
+        description="Twilio authentication token"
+    )
+    twilio_phone_number: str = Field(
+        default="",
+        description="Twilio phone number for SMS notifications"
+    )
     
-    # Microsoft Graph (Outlook)
-    microsoft_client_id: str = ""
-    microsoft_client_secret: str = ""
-    microsoft_redirect_uri: str = ""
+    # ============================================================================
+    # JWT Authentication Configuration
+    # ============================================================================
+    jwt_secret_key: SecretStr = Field(
+        default="",
+        description="Secret key for JWT token signing"
+    )
+    jwt_algorithm: str = Field(
+        default="HS256",
+        description="Algorithm for JWT token signing"
+    )
+    jwt_expiration_minutes: int = Field(
+        default=30,
+        ge=1,
+        le=10080,  # Max 1 week
+        description="JWT token expiration time in minutes"
+    )
+    jwt_refresh_expiration_days: int = Field(
+        default=7,
+        ge=1,
+        le=90,
+        description="JWT refresh token expiration time in days"
+    )
     
-    # SendGrid (Email)
-    sendgrid_api_key: str = ""
-    sendgrid_from_email: str = ""
+    # ============================================================================
+    # Celery Configuration
+    # ============================================================================
+    celery_broker_url: SecretStr = Field(
+        default="",
+        description="Celery message broker URL (typically Redis)"
+    )
+    celery_result_backend: SecretStr = Field(
+        default="",
+        description="Celery result backend URL"
+    )
+    celery_task_time_limit: int = Field(
+        default=300,
+        ge=1,
+        le=3600,
+        description="Hard time limit for Celery tasks in seconds"
+    )
+    celery_task_soft_time_limit: int = Field(
+        default=240,
+        ge=1,
+        le=3600,
+        description="Soft time limit for Celery tasks in seconds"
+    )
     
-    # Twilio (SMS)
-    twilio_account_sid: str = ""
-    twilio_auth_token: str = ""
-    twilio_phone_number: str = ""
+    # ============================================================================
+    # API Configuration
+    # ============================================================================
+    api_rate_limit: int = Field(
+        default=100,
+        ge=1,
+        le=10000,
+        description="API rate limit per minute per user"
+    )
+    api_timeout: int = Field(
+        default=30,
+        ge=1,
+        le=300,
+        description="API request timeout in seconds"
+    )
     
-    # JWT Authentication
-    jwt_secret_key: str = ""
-    jwt_algorithm: str = "HS256"
-    jwt_expiration_minutes: int = 30
-    
-    # Celery
-    celery_broker_url: str = ""
-    celery_result_backend: str = ""
+    # ============================================================================
+    # Logging Configuration
+    # ============================================================================
+    log_level: str = Field(
+        default="INFO",
+        description="Logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    )
+    log_format: str = Field(
+        default="json",
+        description="Log format (json or text)"
+    )
     
     model_config = SettingsConfigDict(
         env_file=".env",
+        env_file_encoding="utf-8",
         case_sensitive=False,
-        extra="ignore"
+        extra="ignore",
+        validate_default=True,
     )
+    
+    # ============================================================================
+    # Validators
+    # ============================================================================
+    
+    @field_validator("app_env", mode="before")
+    @classmethod
+    def validate_environment(cls, v: str) -> Environment:
+        """Validate and normalize environment value."""
+        if isinstance(v, Environment):
+            return v
+        try:
+            return Environment(v.lower())
+        except ValueError:
+            raise ValueError(
+                f"Invalid environment: {v}. Must be one of: "
+                f"{', '.join(e.value for e in Environment)}"
+            )
+    
+    @field_validator("log_level")
+    @classmethod
+    def validate_log_level(cls, v: str) -> str:
+        """Validate log level."""
+        valid_levels = {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+        v_upper = v.upper()
+        if v_upper not in valid_levels:
+            raise ValueError(
+                f"Invalid log level: {v}. Must be one of: {', '.join(valid_levels)}"
+            )
+        return v_upper
+    
+    @field_validator("log_format")
+    @classmethod
+    def validate_log_format(cls, v: str) -> str:
+        """Validate log format."""
+        valid_formats = {"json", "text"}
+        v_lower = v.lower()
+        if v_lower not in valid_formats:
+            raise ValueError(
+                f"Invalid log format: {v}. Must be one of: {', '.join(valid_formats)}"
+            )
+        return v_lower
+    
+    @model_validator(mode="after")
+    def validate_production_settings(self) -> "Settings":
+        """Validate critical settings for production environment."""
+        if self.is_production:
+            # Force debug off in production
+            self.debug = False
+            
+            # Validate critical secrets are set
+            critical_secrets = {
+                "secret_key": self.secret_key,
+                "database_url": self.database_url,
+                "jwt_secret_key": self.jwt_secret_key,
+            }
+            
+            missing_secrets = [
+                name for name, value in critical_secrets.items()
+                if not value or value.get_secret_value() == ""
+            ]
+            
+            if missing_secrets:
+                raise ValueError(
+                    f"Production environment requires the following settings: "
+                    f"{', '.join(missing_secrets)}"
+                )
+        
+        return self
+    
+    @model_validator(mode="after")
+    def validate_celery_time_limits(self) -> "Settings":
+        """Ensure soft time limit is less than hard time limit."""
+        if self.celery_task_soft_time_limit >= self.celery_task_time_limit:
+            raise ValueError(
+                "celery_task_soft_time_limit must be less than celery_task_time_limit"
+            )
+        return self
+    
+    # ============================================================================
+    # Environment Helper Properties
+    # ============================================================================
+    
+    @property
+    def is_development(self) -> bool:
+        """
+        Check if running in development environment.
+        
+        Returns:
+            True if environment is development, False otherwise
+        """
+        return self.app_env == Environment.DEVELOPMENT
+    
+    @property
+    def is_production(self) -> bool:
+        """
+        Check if running in production environment.
+        
+        Returns:
+            True if environment is production, False otherwise
+        """
+        return self.app_env == Environment.PRODUCTION
+    
+    @property
+    def is_staging(self) -> bool:
+        """
+        Check if running in staging environment.
+        
+        Returns:
+            True if environment is staging, False otherwise
+        """
+        return self.app_env == Environment.STAGING
+    
+    @property
+    def is_testing(self) -> bool:
+        """
+        Check if running in test mode.
+        
+        Returns:
+            True if database URL contains 'test', False otherwise
+        """
+        db_url = self.database_url.get_secret_value() if self.database_url else ""
+        return "test" in db_url.lower()
+    
+    # ============================================================================
+    # Configuration Helper Properties
+    # ============================================================================
+    
+    @property
+    def has_google_calendar(self) -> bool:
+        """Check if Google Calendar integration is configured."""
+        return bool(
+            self.google_client_id
+            and self.google_client_secret
+            and self.google_client_secret.get_secret_value()
+        )
+    
+    @property
+    def has_microsoft_calendar(self) -> bool:
+        """Check if Microsoft Calendar integration is configured."""
+        return bool(
+            self.microsoft_client_id
+            and self.microsoft_client_secret
+            and self.microsoft_client_secret.get_secret_value()
+        )
+    
+    @property
+    def has_email_notifications(self) -> bool:
+        """Check if email notifications are configured."""
+        return bool(
+            self.sendgrid_api_key
+            and self.sendgrid_api_key.get_secret_value()
+            and self.sendgrid_from_email
+        )
+    
+    @property
+    def has_sms_notifications(self) -> bool:
+        """Check if SMS notifications are configured."""
+        return bool(
+            self.twilio_account_sid
+            and self.twilio_auth_token
+            and self.twilio_auth_token.get_secret_value()
+            and self.twilio_phone_number
+        )
+    
+    @property
+    def has_openai(self) -> bool:
+        """Check if OpenAI integration is configured."""
+        return bool(
+            self.openai_api_key
+            and self.openai_api_key.get_secret_value()
+        )
+    
+    @property
+    def database_url_safe(self) -> str:
+        """
+        Get database URL with password masked for logging.
+        
+        Returns:
+            Database URL with password replaced by asterisks
+        """
+        if not self.database_url:
+            return ""
+        
+        url = self.database_url.get_secret_value()
+        # Mask password in URL for safe logging
+        if "@" in url and "://" in url:
+            protocol, rest = url.split("://", 1)
+            if "@" in rest:
+                credentials, host = rest.split("@", 1)
+                if ":" in credentials:
+                    username, _ = credentials.split(":", 1)
+                    return f"{protocol}://{username}:****@{host}"
+        return url
+    
+    def get_database_config(self) -> dict:
+        """
+        Get database configuration dictionary for SQLAlchemy.
+        
+        Returns:
+            Dictionary with database connection parameters
+        """
+        return {
+            "url": self.database_url.get_secret_value() if self.database_url else "",
+            "pool_size": self.database_pool_size,
+            "max_overflow": self.database_pool_max_overflow,
+            "pool_timeout": self.database_pool_timeout,
+            "pool_pre_ping": True,  # Verify connections before using
+            "echo": self.debug and self.is_development,  # Log SQL in dev debug mode
+        }
+    
+    def get_redis_config(self) -> dict:
+        """
+        Get Redis configuration dictionary.
+        
+        Returns:
+            Dictionary with Redis connection parameters
+        """
+        return {
+            "url": self.redis_url.get_secret_value() if self.redis_url else "",
+            "max_connections": self.redis_max_connections,
+            "decode_responses": True,
+        }
+    
+    def get_celery_config(self) -> dict:
+        """
+        Get Celery configuration dictionary.
+        
+        Returns:
+            Dictionary with Celery configuration parameters
+        """
+        return {
+            "broker_url": self.celery_broker_url.get_secret_value() if self.celery_broker_url else "",
+            "result_backend": self.celery_result_backend.get_secret_value() if self.celery_result_backend else "",
+            "task_time_limit": self.celery_task_time_limit,
+            "task_soft_time_limit": self.celery_task_soft_time_limit,
+            "task_serializer": "json",
+            "result_serializer": "json",
+            "accept_content": ["json"],
+            "timezone": "UTC",
+            "enable_utc": True,
+        }
 
 
-@lru_cache()
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """
     Get cached settings instance.
-    Uses lru_cache to ensure settings are loaded only once.
+    
+    Uses lru_cache to ensure settings are loaded and validated only once,
+    improving performance and ensuring consistency across the application.
+    
+    Returns:
+        Validated Settings instance
+        
+    Raises:
+        ValidationError: If settings validation fails
+        
+    Example:
+        >>> settings = get_settings()
+        >>> print(settings.app_name)
+        'Multi-Agents-Appointment-Booking'
     """
     return Settings()
 
-# Made with Bob
+
+def reload_settings() -> Settings:
+    """
+    Force reload settings by clearing cache.
+    
+    Useful for testing or when environment variables change at runtime.
+    
+    Returns:
+        Fresh Settings instance
+        
+    Example:
+        >>> settings = reload_settings()
+    """
+    get_settings.cache_clear()
+    return get_settings()
+
+
+# Export commonly used items
+__all__ = [
+    "Settings",
+    "Environment",
+    "get_settings",
+    "reload_settings",
+]
