@@ -10,9 +10,24 @@ from typing import Optional
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
     
-    # Application
+    # Application Configuration
     app_name: str = "Multi-Agents-Appointment-Booking"
-    app_env: str = "development"
+    app_env: str = "development"  # Options: development, staging, production
+    
+    @property
+    def is_development(self) -> bool:
+        """Check if running in development environment."""
+        return self.app_env.lower() == "development"
+    
+    @property
+    def is_production(self) -> bool:
+        """Check if running in production environment."""
+        return self.app_env.lower() == "production"
+    
+    @property
+    def is_staging(self) -> bool:
+        """Check if running in staging environment."""
+        return self.app_env.lower() == "staging"
     debug: bool = True
     secret_key: str = ""
     
