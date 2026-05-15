@@ -95,6 +95,16 @@ class Settings(BaseSettings):
         le=300,
         description="Timeout in seconds for getting connection from pool"
     )
+    database_pool_recycle: int = Field(
+        default=3600,
+        ge=300,
+        le=7200,
+        description="Recycle connections after N seconds to prevent stale connections"
+    )
+    database_echo_pool: bool = Field(
+        default=False,
+        description="Log connection pool checkouts/checkins for debugging"
+    )
     
     # ============================================================================
     # Redis Configuration
@@ -484,8 +494,10 @@ class Settings(BaseSettings):
             "pool_size": self.database_pool_size,
             "max_overflow": self.database_pool_max_overflow,
             "pool_timeout": self.database_pool_timeout,
+            "pool_recycle": self.database_pool_recycle,  # Recycle stale connections
             "pool_pre_ping": True,  # Verify connections before using
             "echo": self.debug and self.is_development,  # Log SQL in dev debug mode
+            "echo_pool": self.database_echo_pool,  # Log pool checkouts/checkins
         }
     
     def get_redis_config(self) -> dict:

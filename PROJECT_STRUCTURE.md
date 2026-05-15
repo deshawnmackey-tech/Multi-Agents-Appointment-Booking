@@ -1,7 +1,7 @@
 # Project Structure
 
 ```
-ulti-Agents-Appointment-Booking/
+Multi-Agents-Appointment-Booking/
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                    # CI/CD pipeline
@@ -242,7 +242,7 @@ Development dependencies:
 Environment variables template:
 ```env
 # Application
-APP_NAME=ulti-Agents-Appointment-Booking
+APP_NAME=Multi-Agents-Appointment-Booking
 APP_ENV=development
 DEBUG=True
 SECRET_KEY=your-secret-key-here
