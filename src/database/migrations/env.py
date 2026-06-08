@@ -20,7 +20,7 @@ from src.models.calendar import Calendar
 from src.models.calendar_event import CalendarEvent
 from src.models.appointment import Appointment
 from src.models.participant import Participant
-from src.models.preference import Preference
+from src.models.preference import UserPreference
 
 # this is the Alembic Config object
 config = context.config
