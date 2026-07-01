@@ -137,7 +137,7 @@ ps aux | grep uvicorn
 kill <PID>
 
 # Or use pkill
-pkill -f "uvicorn src.main:app"
+pkill -f "uvicorn|python -m uvicorn"
 ```
 
 ## 🎉 Success Metrics

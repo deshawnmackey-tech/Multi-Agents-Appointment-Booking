@@ -1,8 +1,17 @@
 """
 Live test of NLP Agent with real OpenAI API calls.
 """
+import os
+
+import pytest
 from datetime import datetime
 from src.agents.nlp_agent import NLPAgent
+
+
+pytestmark = pytest.mark.skipif(
+    os.getenv("RUN_LIVE_NLP_TESTS", "0") != "1",
+    reason="Set RUN_LIVE_NLP_TESTS=1 and a valid OPENAI_API_KEY to run live NLP tests",
+)
 
 
 def test_simple_request():
@@ -42,7 +51,7 @@ def test_simple_request():
     else:
         print(f"\n  ❌ Error: {result.get('error')}")
     
-    return result
+    assert isinstance(result, dict)
 
 
 def test_complex_request():
@@ -78,7 +87,7 @@ def test_complex_request():
     else:
         print(f"\n  ❌ Error: {result.get('error')}")
     
-    return result
+    assert isinstance(result, dict)
 
 
 def test_ambiguous_request():
@@ -107,7 +116,7 @@ def test_ambiguous_request():
         for amb in result.get('ambiguities', []):
             print(f"    - {amb}")
     
-    return result
+    assert isinstance(result, dict)
 
 
 def main():

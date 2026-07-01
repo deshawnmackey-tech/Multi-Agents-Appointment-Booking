@@ -101,7 +101,7 @@ alembic upgrade head
 
 4. **Run the application**:
 ```bash
-uvicorn src.main:app --reload
+python -m uvicorn src.main:app --reload
 ```
 
 5. **Access the API**:

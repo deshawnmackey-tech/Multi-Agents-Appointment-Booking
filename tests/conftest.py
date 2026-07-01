@@ -1,6 +1,7 @@
 """
 Pytest configuration and fixtures.
 """
+import os
 import pytest
 from typing import Generator
 from fastapi.testclient import TestClient
@@ -13,13 +14,15 @@ from src.config import get_settings
 
 settings = get_settings()
 
-# Create test database engine
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./test.db"
+# Create test database engine. Defaults to SQLite but can be overridden,
+# e.g. TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/test_db
+SQLALCHEMY_TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///./test.db")
 
-engine = create_engine(
-    SQLALCHEMY_TEST_DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine_kwargs = {}
+if SQLALCHEMY_TEST_DATABASE_URL.startswith("sqlite"):
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, **engine_kwargs)
 
 TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

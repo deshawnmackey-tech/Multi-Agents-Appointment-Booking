@@ -2,12 +2,12 @@
 CalendarEvent model for tracking synced events across calendars.
 """
 from sqlalchemy import Column, String, DateTime, ForeignKey, Enum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from src.database.session import Base
+from src.database.types import GUID
 
 
 class SyncStatus(str, enum.Enum):
@@ -32,9 +32,9 @@ class CalendarEvent(Base):
     """
     __tablename__ = "calendar_events"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    appointment_id = Column(UUID(as_uuid=True), ForeignKey("appointments.id"), nullable=False)
-    calendar_id = Column(UUID(as_uuid=True), ForeignKey("calendars.id"), nullable=False)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    appointment_id = Column(GUID(), ForeignKey("appointments.id"), nullable=False)
+    calendar_id = Column(GUID(), ForeignKey("calendars.id"), nullable=False)
     external_event_id = Column(String, nullable=False)
     sync_status = Column(Enum(SyncStatus), default=SyncStatus.PENDING)
     last_synced_at = Column(DateTime)

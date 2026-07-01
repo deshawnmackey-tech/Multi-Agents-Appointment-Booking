@@ -4,6 +4,20 @@ Multi-Agent Appointment Booking System with Google Calendar, Outlook, and iOS Ca
 
 ## 🚀 Quick Start
 
+### One-Command Bootstrap (Recommended)
+
+```bash
+./scripts/bootstrap_dev.sh
+```
+
+Optional flags:
+
+```bash
+./scripts/bootstrap_dev.sh --run-app
+./scripts/bootstrap_dev.sh --no-tests
+./scripts/bootstrap_dev.sh --postgres
+```
+
 ### Prerequisites
 
 - Python 3.10+
@@ -67,7 +81,7 @@ Multi-Agent Appointment Booking System with Google Calendar, Outlook, and iOS Ca
 
 9. **Start the application**
    ```bash
-   uvicorn src.main:app --reload
+   python -m uvicorn src.main:app --reload
    ```
 
 ## 🗄️ Database Configuration
@@ -184,26 +198,26 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 ```bash
 # Run all tests
-pytest
+python -m pytest
 
 # Run with coverage
-pytest --cov=src --cov-report=html
+python -m pytest --cov=src --cov-report=html
 
 # Run specific test file
-pytest tests/unit/test_agents/
+python -m pytest tests/unit/test_agents/
 ```
 
 ### Test Database Setup
 
-The test suite uses a separate database to avoid affecting development data:
+The test suite uses a separate database to avoid affecting development data.
+By default, tests run on local SQLite (`sqlite:///./test.db`).
+
+To run integration tests against PostgreSQL instead, set `TEST_DATABASE_URL`:
 
 ```bash
-# Create test database
-createdb appointment_booking_test
-
-# Run tests with test environment
-export ENV_FILE=.env.test
-pytest
+# Example PostgreSQL profile
+export TEST_DATABASE_URL=postgresql://user:password@localhost:5432/appointment_booking_test
+python -m pytest
 ```
 
 ## 📚 Additional Documentation
@@ -211,6 +225,7 @@ pytest
 - [Architecture](ARCHITECTURE.md) - System architecture and design
 - [Implementation Guide](IMPLEMENTATION_GUIDE.md) - Development guidelines
 - [Project Structure](PROJECT_STRUCTURE.md) - Directory organization
+- [Setup Process and Procedures](SETUP_PROCESS_PROCEDURES.md) - Standardized onboarding and operational workflow
 
 ## 🤝 Contributing
 

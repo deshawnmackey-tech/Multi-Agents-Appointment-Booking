@@ -2,11 +2,11 @@
 User model for authentication and user management.
 """
 from sqlalchemy import Column, String, DateTime
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 from src.database.session import Base
+from src.database.types import GUID
 
 
 class User(Base):
@@ -24,7 +24,7 @@ class User(Base):
     """
     __tablename__ = "users"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
     email = Column(String, unique=True, nullable=False, index=True)
     name = Column(String, nullable=False)
     hashed_password = Column(String, nullable=False)

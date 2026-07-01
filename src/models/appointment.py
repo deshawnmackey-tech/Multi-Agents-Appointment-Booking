@@ -2,12 +2,12 @@
 Appointment model for managing scheduled appointments.
 """
 from sqlalchemy import Column, String, Text, DateTime, ForeignKey, Enum
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from datetime import datetime
 import uuid
 import enum
 from src.database.session import Base
+from src.database.types import GUID
 
 
 class AppointmentStatus(str, enum.Enum):
@@ -37,8 +37,8 @@ class Appointment(Base):
     """
     __tablename__ = "appointments"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False)
     title = Column(String, nullable=False)
     description = Column(Text)
     start_time = Column(DateTime, nullable=False)

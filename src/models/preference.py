@@ -2,10 +2,10 @@
 UserPreference model for managing user scheduling preferences.
 """
 from sqlalchemy import Column, Integer, Boolean, Time, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 import uuid
 from src.database.session import Base
+from src.database.types import GUID
 
 
 class UserPreference(Base):
@@ -27,8 +27,8 @@ class UserPreference(Base):
     """
     __tablename__ = "user_preferences"
     
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True)
+    id = Column(GUID(), primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID(), ForeignKey("users.id"), nullable=False, unique=True)
     
     # Working hours
     working_hours_start = Column(Time, default="09:00:00")

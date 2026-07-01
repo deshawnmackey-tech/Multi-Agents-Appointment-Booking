@@ -5,6 +5,7 @@ import re
 from datetime import datetime, time
 from typing import Optional
 from uuid import UUID
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 def validate_email(email: str) -> bool:
@@ -32,9 +33,9 @@ def validate_timezone(timezone: str) -> bool:
         True if valid, False otherwise
     """
     try:
-        import pytz
-        return timezone in pytz.all_timezones
-    except Exception:
+        ZoneInfo(timezone)
+        return True
+    except (ZoneInfoNotFoundError, ValueError):
         return False
 
 
