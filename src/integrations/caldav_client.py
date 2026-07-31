@@ -1,5 +1,7 @@
 """CalDAV integration client scaffold."""
-from typing import Dict
+from typing import Any, Dict
+
+from caldav import DAVClient
 
 from src.config import get_settings
 
@@ -34,3 +36,28 @@ class CalDAVClient:
         if missing:
             details = ", ".join(missing.keys())
             raise ValueError(f"CalDAV is not configured. Missing: {details}")
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Attempt an authenticated CalDAV connection and enumerate calendars."""
+        self.ensure_configured()
+        with DAVClient(
+            url=self.settings.caldav_url,
+            username=self.settings.caldav_username,
+            password=self.settings.caldav_password.get_secret_value(),
+        ) as client:
+            principal = client.principal()
+            calendars = principal.calendars()
+
+        payload = []
+        for calendar in calendars:
+            name = getattr(calendar, "name", None)
+            payload.append({
+                "name": name if name else "Unnamed calendar",
+                "url": str(getattr(calendar, "url", "")),
+            })
+
+        return {
+            "connected": True,
+            "calendar_count": len(payload),
+            "calendars": payload,
+        }

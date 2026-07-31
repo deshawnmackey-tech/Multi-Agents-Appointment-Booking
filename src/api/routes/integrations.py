@@ -1,7 +1,7 @@
 """Integration readiness routes for external APIs."""
 from typing import Any, Dict
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, status
 
 from src.config import get_settings
 from src.integrations.caldav_client import CalDAVClient
@@ -63,3 +63,21 @@ async def integration_status() -> Dict[str, Any]:
         "ready": ready,
         "integrations": status,
     }
+
+
+@router.get("/caldav/test")
+async def caldav_test_connection() -> Dict[str, Any]:
+    """Perform a live CalDAV connection probe using configured credentials."""
+    client = CalDAVClient()
+    try:
+        return client.test_connection()
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"CalDAV connection test failed: {exc}",
+        ) from exc

@@ -108,7 +108,15 @@ async def root():
 
 
 # Import and include routers
-from src.api.routes import auth, appointments, calendars, preferences, integrations, google_oauth
+from src.api.routes import (
+    auth,
+    appointments,
+    calendars,
+    preferences,
+    integrations,
+    google_oauth,
+    microsoft_oauth,
+)
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(appointments.router, prefix="/api/appointments", tags=["Appointments"])
@@ -116,6 +124,7 @@ app.include_router(calendars.router, prefix="/api/calendars", tags=["Calendars"]
 app.include_router(preferences.router, prefix="/api/preferences", tags=["Preferences"])
 app.include_router(integrations.router, prefix="/api/integrations", tags=["Integrations"])
 app.include_router(google_oauth.router, tags=["Google OAuth"])
+app.include_router(microsoft_oauth.router, tags=["Microsoft OAuth"])
 
 
 if __name__ == "__main__":
