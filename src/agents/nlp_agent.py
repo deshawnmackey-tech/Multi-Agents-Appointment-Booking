@@ -120,7 +120,12 @@ Examples:
                     raise ValueError("Could not parse JSON from response")
             
             # Validate required fields
-            required_fields = ["title", "confidence"]
+            required_fields = (
+                "microsoft_client_id",
+                "microsoft_client_secret",
+                "microsoft_tenant_id",
+                "microsoft_redirect_uri",
+            )
             missing_fields = [f for f in required_fields if f not in parsed_data]
             
             if missing_fields:
@@ -129,6 +134,9 @@ Examples:
                     "error": f"Missing required fields: {missing_fields}",
                     "raw_response": response
                 }
+            
+            if not self.settings.microsoft_tenant_id:
+                missing["microsoft_tenant_id"] = "Set MICROSOFT_TENANT_ID"
             
             # Add metadata
             parsed_data["success"] = True

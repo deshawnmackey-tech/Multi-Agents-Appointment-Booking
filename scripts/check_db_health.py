@@ -40,12 +40,18 @@ def check_database_health() -> int:
     try:
         # Test database connection
         with engine.connect() as conn:
-            result = conn.execute(text("SELECT version()"))
+            version_query = (
+                "SELECT sqlite_version()"
+                if engine.dialect.name == "sqlite"
+                else "SELECT version()"
+            )
+            result = conn.execute(text(version_query))
             version = result.scalar()
             
             print("\n✓ Database connection successful")
             print(f"\nDatabase Information:")
             print(f"  URL: {settings.database_url_safe}")
+            print(f"  Dialect: {engine.dialect.name}")
             print(f"  Version: {version}")
             
             # Check pool status

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from typing import Any
 
 from src.database.session import get_db
+from src.config import get_settings
 from src.schemas.auth import (
     Token,
     LoginRequest,
@@ -16,10 +17,46 @@ from src.schemas.auth import (
     ChangePasswordRequest
 )
 from src.schemas.user import UserCreate, UserResponse
+from src.services.auth_service import AuthService
 
 router = APIRouter()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+
+
+def require_current_user(
+    db: Session = Depends(get_db),
+    token: str = Depends(oauth2_scheme),
+):
+    """Resolve the authenticated user from an access token."""
+    payload = AuthService.decode_token(token)
+    if not payload or payload.get("type") == "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    user_id = payload.get("user_id") or payload.get("sub")
+    if not user_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        user = AuthService.get_user_by_id(db, user_id)
+    except (TypeError, ValueError):
+        user = None
+
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -40,15 +77,12 @@ async def register(
     Raises:
         HTTPException: If email already exists
     """
-    # TODO: Implement user registration logic
-    # - Check if email already exists
-    # - Hash password
-    # - Create user in database
-    # - Return user data
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Registration endpoint not yet implemented"
-    )
+    if AuthService.get_user_by_email(db, user_data.email):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="A user with this email already exists",
+        )
+    return AuthService.create_user(db, user_data)
 
 
 @router.post("/login", response_model=Token)
@@ -69,13 +103,19 @@ async def login(
     Raises:
         HTTPException: If credentials are invalid
     """
-    # TODO: Implement login logic
-    # - Verify user credentials
-    # - Generate JWT token
-    # - Return token
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Login endpoint not yet implemented"
+    user = AuthService.authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token_data = {"user_id": str(user.id), "email": user.email}
+    return Token(
+        access_token=AuthService.create_access_token(token_data),
+        refresh_token=AuthService.create_refresh_token(token_data),
+        expires_in=get_settings().jwt_expiration_minutes * 60,
     )
 
 
@@ -97,10 +137,24 @@ async def refresh_token(
     Raises:
         HTTPException: If refresh token is invalid
     """
-    # TODO: Implement token refresh logic
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Token refresh endpoint not yet implemented"
+    payload = AuthService.decode_token(refresh_data.refresh_token)
+    if not payload or payload.get("type") != "refresh" or not payload.get("user_id"):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    user = AuthService.get_user_by_id(db, payload["user_id"])
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    token_data = {"user_id": str(user.id), "email": user.email}
+    return Token(
+        access_token=AuthService.create_access_token(token_data),
+        refresh_token=AuthService.create_refresh_token(token_data),
     )
 
 
@@ -182,8 +236,7 @@ async def change_password(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user(
-    db: Session = Depends(get_db),
-    token: str = Depends(oauth2_scheme)
+    current_user=Depends(require_current_user),
 ) -> Any:
     """
     Get current authenticated user information.
@@ -198,14 +251,7 @@ async def get_current_user(
     Raises:
         HTTPException: If token is invalid
     """
-    # TODO: Implement get current user logic
-    # - Decode JWT token
-    # - Fetch user from database
-    # - Return user data
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Get current user endpoint not yet implemented"
-    )
+    return current_user
 
 
 @router.post("/logout", status_code=status.HTTP_200_OK)

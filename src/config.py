@@ -175,6 +175,26 @@ class Settings(BaseSettings):
         default="",
         description="Microsoft OAuth2 redirect URI"
     )
+    microsoft_tenant_id: str = Field(
+        default="",
+        description="Microsoft Entra Directory tenant ID",
+    )
+
+    # ============================================================================
+    # CalDAV (iOS/Apple Calendar) Integration
+    # ============================================================================
+    caldav_url: str = Field(
+        default="",
+        description="CalDAV server URL"
+    )
+    caldav_username: str = Field(
+        default="",
+        description="CalDAV username"
+    )
+    caldav_password: SecretStr = Field(
+        default="",
+        description="CalDAV password or app-specific password"
+    )
     
     # ============================================================================
     # SendGrid (Email) Configuration
@@ -429,8 +449,19 @@ class Settings(BaseSettings):
         """Check if Microsoft Calendar integration is configured."""
         return bool(
             self.microsoft_client_id
-            and self.microsoft_client_secret
             and self.microsoft_client_secret.get_secret_value()
+            and self.microsoft_tenant_id
+            and self.microsoft_redirect_uri
+        )
+    
+    @property
+    def has_caldav_calendar(self) -> bool:
+        """Check if CalDAV integration is configured."""
+        return bool(
+            self.caldav_url
+            and self.caldav_username
+            and self.caldav_password
+            and self.caldav_password.get_secret_value()
         )
     
     @property
@@ -447,7 +478,6 @@ class Settings(BaseSettings):
         """Check if SMS notifications are configured."""
         return bool(
             self.twilio_account_sid
-            and self.twilio_auth_token
             and self.twilio_auth_token.get_secret_value()
             and self.twilio_phone_number
         )

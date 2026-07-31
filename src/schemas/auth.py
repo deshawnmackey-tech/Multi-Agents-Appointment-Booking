@@ -9,6 +9,7 @@ from datetime import datetime
 class Token(BaseModel):
     """Schema for JWT token response."""
     access_token: str = Field(..., description="JWT access token")
+    refresh_token: Optional[str] = Field(None, description="JWT refresh token")
     token_type: str = Field(default="bearer", description="Token type")
     expires_in: Optional[int] = Field(None, description="Token expiration time in seconds")
 
