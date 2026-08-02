@@ -1,10 +1,17 @@
 """Microsoft Graph integration client helpers."""
-from typing import Dict, List, Tuple
+import base64
+import hashlib
+import json
+import logging
+import secrets
+from typing import Dict, List
+from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-import json
 
 from src.config import get_settings
+
+logger = logging.getLogger(__name__)
 
 
 class MicrosoftGraphClient:
@@ -54,41 +61,75 @@ class MicrosoftGraphClient:
         """Build the base Microsoft OAuth authority URL."""
         return f"https://login.microsoftonline.com/{self.settings.microsoft_tenant_id}/oauth2/v2.0"
 
-    def authorization_url(self, state: str) -> str:
+    @staticmethod
+    def _code_challenge(code_verifier: str) -> str:
+        digest = hashlib.sha256(code_verifier.encode("utf-8")).digest()
+        return base64.urlsafe_b64encode(digest).decode("utf-8").rstrip("=")
+
+    def authorization_url(self, state: str, code_verifier: str | None = None) -> str:
         """Build the Microsoft consent URL for an authenticated app user."""
         self.ensure_configured()
-        query = urlencode(
-            {
-                "client_id": self.settings.microsoft_client_id,
-                "response_type": "code",
-                "redirect_uri": self.settings.microsoft_redirect_uri,
-                "response_mode": "query",
-                "scope": " ".join(self.scopes),
-                "state": state,
-            }
-        )
+        query_data = {
+            "client_id": self.settings.microsoft_client_id,
+            "response_type": "code",
+            "redirect_uri": self.settings.microsoft_redirect_uri,
+            "response_mode": "query",
+            "scope": " ".join(self.scopes),
+            "state": state,
+        }
+        if code_verifier:
+            query_data["code_challenge"] = self._code_challenge(code_verifier)
+            query_data["code_challenge_method"] = "S256"
+        query = urlencode(query_data)
         return f"{self.tenant_authority}/authorize?{query}"
 
-    def exchange_code(self, code: str) -> Dict[str, str]:
+    def exchange_code(self, code: str, code_verifier: str | None = None) -> Dict[str, str]:
         """Exchange Microsoft's authorization code for OAuth tokens."""
         self.ensure_configured()
-        payload = urlencode(
-            {
-                "client_id": self.settings.microsoft_client_id,
-                "client_secret": self.settings.microsoft_client_secret.get_secret_value(),
-                "grant_type": "authorization_code",
-                "code": code,
-                "redirect_uri": self.settings.microsoft_redirect_uri,
-            }
-        ).encode("utf-8")
-        request = Request(
-            f"{self.tenant_authority}/token",
-            data=payload,
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            method="POST",
-        )
-        with urlopen(request, timeout=15) as response:
-            return json.loads(response.read().decode("utf-8"))
+        base_payload = {
+            "client_id": self.settings.microsoft_client_id,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": self.settings.microsoft_redirect_uri,
+        }
+        secret = self.settings.microsoft_client_secret.get_secret_value()
+
+        payload_variants = []
+        if secret and code_verifier:
+            payload_variants.append({**base_payload, "client_secret": secret, "code_verifier": code_verifier})
+        if code_verifier:
+            payload_variants.append({**base_payload, "code_verifier": code_verifier})
+        if secret:
+            payload_variants.append({**base_payload, "client_secret": secret})
+
+        if not payload_variants:
+            payload_variants.append(base_payload)
+
+        last_error: Exception | None = None
+        for variant in payload_variants:
+            redacted_payload = dict(variant)
+            if "client_secret" in redacted_payload:
+                redacted_payload["client_secret"] = "[REDACTED]"
+            logger.info("Microsoft token exchange payload: %s", redacted_payload)
+            payload = urlencode(variant).encode("utf-8")
+            request = Request(
+                f"{self.tenant_authority}/token",
+                data=payload,
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+                method="POST",
+            )
+            try:
+                with urlopen(request, timeout=15) as response:
+                    return json.loads(response.read().decode("utf-8"))
+            except HTTPError as exc:
+                last_error = exc
+                error_body = exc.read().decode("utf-8", errors="replace")
+                logger.warning("Microsoft token exchange failed: %s", error_body)
+                continue
+
+        if last_error is not None:
+            raise last_error
+        raise RuntimeError("Microsoft token exchange failed without a response")
 
     def list_calendars(self, access_token: str) -> List[Dict[str, str | bool]]:
         """Fetch Microsoft calendars for the authenticated account."""

@@ -88,9 +88,12 @@ class CalendarService:
             name=calendar_data.name,
             provider=calendar_data.provider,
             external_id=calendar_data.external_id,
+            calendar_id=calendar_data.external_id,
             timezone=calendar_data.timezone,
             color=calendar_data.color,
             is_primary=calendar_data.is_primary,
+            is_active=True,
+            sync_enabled=True,
             access_token=calendar_data.access_token,
             refresh_token=calendar_data.refresh_token
         )
@@ -156,6 +159,7 @@ class CalendarService:
             Updated calendar object
         """
         calendar.last_synced = datetime.utcnow()
+        calendar.updated_at = datetime.utcnow()
         db.commit()
         db.refresh(calendar)
         
@@ -212,22 +216,33 @@ class CalendarService:
         synced_count = 0
         
         for event_data in events_data:
+            external_event_id = event_data.get("external_event_id") or event_data.get("external_id")
+            appointment_id = event_data.get("appointment_id")
+
+            if not external_event_id or not appointment_id:
+                continue
+
             # Check if event already exists
             existing_event = db.query(CalendarEvent).filter(
                 CalendarEvent.calendar_id == calendar.id,
-                CalendarEvent.external_id == event_data.get("external_id")
+                CalendarEvent.external_event_id == external_event_id
             ).first()
             
             if existing_event:
                 # Update existing event
                 for field, value in event_data.items():
-                    if hasattr(existing_event, field):
+                    if field == "external_id":
+                        setattr(existing_event, "external_event_id", value)
+                    elif hasattr(existing_event, field):
                         setattr(existing_event, field, value)
             else:
                 # Create new event
+                payload = dict(event_data)
+                payload.pop("external_id", None)
+                payload["external_event_id"] = external_event_id
                 new_event = CalendarEvent(
                     calendar_id=calendar.id,
-                    **event_data
+                    **payload
                 )
                 db.add(new_event)
             

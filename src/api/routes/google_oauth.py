@@ -97,7 +97,9 @@ async def google_callback(
             calendar = Calendar(
                 user_id=user.id,
                 provider=CalendarProvider.GOOGLE,
+                name=item.get("summary", external_id),
                 calendar_id=external_id,
+                external_id=external_id,
                 access_token=encrypted_access_token,
                 refresh_token=encrypted_refresh_token,
                 is_primary=bool(item.get("primary")),
@@ -108,6 +110,9 @@ async def google_callback(
             if encrypted_refresh_token:
                 calendar.refresh_token = encrypted_refresh_token
             calendar.is_primary = bool(item.get("primary"))
+            calendar.name = item.get("summary", external_id)
+            calendar.external_id = external_id
+            calendar.calendar_id = external_id
 
         connected_calendars.append({
             "id": external_id,
