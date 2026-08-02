@@ -20,7 +20,8 @@ engine = create_engine(
     pool_recycle=db_config["pool_recycle"],
     pool_pre_ping=db_config["pool_pre_ping"],
     echo=db_config["echo"],
-    echo_pool=db_config["echo_pool"]
+    echo_pool=db_config["echo_pool"],
+    connect_args=db_config["connect_args"]
 )
 
 # Create session factory

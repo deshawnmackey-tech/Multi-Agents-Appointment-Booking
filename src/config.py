@@ -19,6 +19,7 @@ Example:
 """
 from enum import Enum
 from functools import lru_cache
+import os
 from typing import Literal, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -194,6 +195,10 @@ class Settings(BaseSettings):
     caldav_password: SecretStr = Field(
         default="",
         description="CalDAV password or app-specific password"
+    )
+    caldav_calendar_name: str = Field(
+        default="",
+        description="Name of the default CalDAV calendar to use (defaults to the first available)"
     )
     
     # ============================================================================
@@ -425,9 +430,17 @@ class Settings(BaseSettings):
         """
         Check if running in test mode.
         
+        Detects test execution via pytest's PYTEST_CURRENT_TEST environment
+        variable (set automatically for the duration of each test), an
+        explicit TEST_DATABASE_URL override, or a configured database URL
+        that contains 'test'.
+        
         Returns:
-            True if database URL contains 'test', False otherwise
+            True if running under pytest or targeting a test database
         """
+        if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("TEST_DATABASE_URL"):
+            return True
+        
         db_url = self.database_url.get_secret_value() if self.database_url else ""
         return "test" in db_url.lower()
     
@@ -516,11 +529,23 @@ class Settings(BaseSettings):
         """
         Get database configuration dictionary for SQLAlchemy.
         
+        Production requires an explicit DATABASE_URL (enforced by
+        validate_production_settings). When no DATABASE_URL is configured
+        outside of production, this falls back to a local SQLite database:
+        a dedicated file when running under pytest/test mode, or a
+        separate file for interactive development.
+        
         Returns:
             Dictionary with database connection parameters
         """
+        url = self.database_url.get_secret_value() if self.database_url else ""
+        if not url:
+            url = "sqlite:///./test.db" if self.is_testing else "sqlite:///./app.db"
+
+        is_sqlite = url.startswith("sqlite")
+
         return {
-            "url": self.database_url.get_secret_value() if self.database_url else "",
+            "url": url,
             "pool_size": self.database_pool_size,
             "max_overflow": self.database_pool_max_overflow,
             "pool_timeout": self.database_pool_timeout,
@@ -528,6 +553,10 @@ class Settings(BaseSettings):
             "pool_pre_ping": True,  # Verify connections before using
             "echo": self.debug and self.is_development,  # Log SQL in dev debug mode
             "echo_pool": self.database_echo_pool,  # Log pool checkouts/checkins
+            # SQLite connections are single-threaded by default; disable that
+            # check so the same connection can be shared across FastAPI's
+            # request-handling threads (e.g. under TestClient).
+            "connect_args": {"check_same_thread": False} if is_sqlite else {},
         }
     
     def get_redis_config(self) -> dict:
