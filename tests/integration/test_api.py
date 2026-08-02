@@ -230,6 +230,28 @@ def test_microsoft_callback_returns_retry_url_for_unauthorized_exchange(client: 
     assert response.headers["location"].startswith("https://login.microsoftonline.com/")
 
 
+def test_microsoft_callback_rejects_invalid_state(client: TestClient, sample_user_data):
+    """Microsoft callback rejects tampered or expired OAuth state tokens."""
+    register_response = client.post("/api/auth/register", json=sample_user_data)
+    assert register_response.status_code == 201
+
+    login_response = client.post(
+        "/api/auth/login",
+        data={
+            "username": sample_user_data["email"],
+            "password": sample_user_data["password"],
+        },
+    )
+    assert login_response.status_code == 200
+
+    response = client.get(
+        "/auth/microsoft/callback?code=bad-code&state=invalid-state",
+    )
+
+    assert response.status_code == 400
+    assert "state is invalid or expired" in response.json()["detail"].lower()
+
+
 def test_caldav_test_connection_handles_unconfigured(client: TestClient, monkeypatch):
     """CalDAV probe endpoint reports configuration errors without crashing."""
     monkeypatch.setattr(CalDAVClient, "test_connection", lambda self: (_ for _ in ()).throw(ValueError("CalDAV is not configured")))

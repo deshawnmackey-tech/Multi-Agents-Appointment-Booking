@@ -81,22 +81,9 @@ async def microsoft_callback(
 
     state_payload = AuthService.decode_token(state_token)
     if not state_payload or state_payload.get("purpose") != "microsoft_calendar_oauth":
-        fresh_code_verifier = secrets.token_urlsafe(64)
-        fresh_state_token = AuthService.create_access_token(
-            {
-                "user_id": str(user.id) if 'user' in locals() else None,
-                "purpose": "microsoft_calendar_oauth",
-                "code_verifier": fresh_code_verifier,
-            },
-            expires_delta=timedelta(minutes=10),
-        )
-        fresh_authorization_url = MicrosoftGraphClient().authorization_url(
-            fresh_state_token,
-            code_verifier=fresh_code_verifier,
-        )
-        return RedirectResponse(
-            url=fresh_authorization_url,
-            status_code=status.HTTP_303_SEE_OTHER,
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Microsoft OAuth state is invalid or expired",
         )
 
     user = AuthService.get_user_by_id(db, state_payload.get("user_id"))
